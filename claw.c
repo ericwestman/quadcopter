@@ -7,76 +7,32 @@
 #include "ui.h"
 #include "timer.h"
 #include "oc.h"
+#include <time.h>
 #include <stdio.h>
 #include <math.h>
 
-#define HELLO       0   // Vendor request that prints "Hello World!"
-#define SET_VALS    1   // Vendor request that receives 2 unsigned integer values
-#define GET_VALS    2   // Vendor request that returns 2 unsigned integer values
-#define PRINT_VALS  3   // Vendor request that prints 2 unsigned integer values 
+#define HELLO           0   // Vendor request that prints "Hello World!"
+#define SET_VALS        1   // Vendor request that receives 2 unsigned integer values
+#define GET_VALS        2   // Vendor request that returns 2 unsigned integer values
+#define PRINT_VALS      3   // Vendor request that prints 2 unsigned integer values 
 
-#define THRESHOLD 1000
-#define WAITING 0 
-#define SENDING 1
+#define THRESHOLD       24000
+#define WAITING         0 
+#define SENDING         1
+#define VBUS            U1OTGSTATbits.SESVD
 
-uint16_t val1, val2, state, temp_dist, last_dist, encoder_count, current_measure;
+uint16_t val1, val2;
 int estop = 0;
 int counter = 0;
 int pinRead = -1;
-uint16_t OC_count = 0;
-
-// void __attribute__((interrupt)) _CNInterrupt(void); 
-// void __attribute__((interrupt)) _OC2Interrupt(void);
-// void init(void);
 
 int16_t main(void) {
-    init();
-    uint16_t started = 0;
-    while (USB_USWSTAT!=CONFIG_STATE) {     // while the peripheral is not configured...
-        ServiceUSB();                       // ...service USB requests
+
+    InitUSB(); // Initialize USB
+
+    while (USB_USWSTAT!=CONFIG_STATE && VBUS) {     //while the peripheral plugged in but not configured...
+        ServiceUSB();                               // ...service USB requests
     }
-
-    while (1) {
-        ServiceUSB(); // service any pending USB requests
-        
-        if (pinRead >= 0) {
-            pinRead = -1;
-            if (pin_read(&A[0]) < 20000) {
-                counter ++;
-                if (counter >= 100) {
-                    estop = 1;
-                }
-            }
-            else if (!estop) {
-                counter = 0;
-            }
-            if (estop){
-                oc_pwm(&oc1, &D[5], NULL, 20E3, pow(2,0));
-            }
-        }
-                              
-        if (timer_flag(&timer1)) {
-            timer_lower(&timer1);
-            led_toggle(&led1);
-        }
-    }
-}
-
-void __attribute__((interrupt, auto_psv)) _CNInterrupt(void){
-    IFS1bits.CNIF = 0;
-    pin_read(&D[0]);
-    encoder_count ++;
-}
-
-void __attribute__((interrupt, auto_psv)) _OC1Interrupt(void){
-    IFS0bits.OC1IF = 0; 
-    pin_read(&D[10]);
-    pinRead = 0;
-    OC_count ++;
-    led_toggle(&led3);
-}
-
-void init(void){
 
     init_clock();
     init_ui();
@@ -109,38 +65,47 @@ void init(void){
     pin_set(&D[8]);
 
     // Set up the PWM signals
-    oc_pwm(&oc1, &D[5], NULL, 20E3, pow(2,15));
-    // oc_pwm(&oc2, &D[10], NULL, 2E3, 32500);
+    oc_pwm(&oc1, &D[5], NULL, 20E3, 32768); //or 65536
 
     // Set up estop
     estop = 0;
 
-    // Set up CNInterrupt
-    // IEC1bits.CNIE = 1;
-    // CNEN1bits.CN14IE = 1;
-    // IFS1bits.CNIF = 0;
-
-    // IPC4bits.CNIP2 = 1;
-    // IPC4bits.CNIP2 = 1;
-    // IPC4bits.CNIP2 = 1;
-
     // Set up OCInterrupt
     _OC1IE = 1;
-    // IFS0bits.OC1IF = 0;
-
-    // OC1CON1bits.OCM2 = 1;
-    // OC1CON1bits.OCM1 = 1;
-    // OC1CON1bits.OCM0 = 0;
-
-    // IPC0bits.OC1IP2 = 0; 
-    // IPC0bits.OC1IP1 = 0;
-    // IPC0bits.OC1IP0 = 0;   
-
-
-    InitUSB();
-    printf("\n\nHello world\n");
+    _TRISF7 = 1;
+    
+    while (1) {
+        ServiceUSB(); // service any pending USB requests
+        
+        if (pinRead >= 0) {
+            pinRead = -1;
+            if (pin_read(&A[0]) < THRESHOLD) {
+                counter ++;
+                if (counter >= 500) {
+                    led_on(&led2);
+                    estop = 1;
+                }
+            }
+            else if (!estop) {
+                counter = 0;
+            }
+            if (estop){
+                pin_write(&D[5], 0);
+            }
+        }
+        
+        // Blinky light
+        if (timer_flag(&timer1)) {
+            timer_lower(&timer1);
+            led_toggle(&led1);
+        }
+    }
 }
 
+void __attribute__((interrupt, auto_psv)) _OC1Interrupt(void){
+    IFS0bits.OC1IF = 0; 
+    pinRead = 0;
+}
 
 void VendorRequests(void) {
     WORD temp;
@@ -168,11 +133,11 @@ void VendorRequests(void) {
             BD[EP0IN].address[3] = temp.b[1];
 
             // temp.w = pin_read(&A[2]);
-            temp.w = OC_count;
+            // temp.w = OC_count;
             BD[EP0IN].address[4] = temp.b[0];
             BD[EP0IN].address[5] = temp.b[1];
             
-            temp.w = encoder_count;
+            temp.w = VBUS;
             BD[EP0IN].address[6] = temp.b[0];
             BD[EP0IN].address[7] = temp.b[1];
             
@@ -202,4 +167,3 @@ void VendorRequestsOut(void) {
             USB_error_flags |= 0x01;                    // set Request Error Flag
     }
 }
-

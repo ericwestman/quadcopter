@@ -47,6 +47,6 @@ if __name__ == '__main__':
     time.sleep(1)
     while (True):
         time.sleep(0.1)
-        print "%s, %s, %s"%(dev.get_vals()[0], dev.get_vals()[2], dev.get_vals()[1])
+        print "%s, %s, %s"%(dev.get_vals()[0], dev.get_vals()[1], dev.get_vals()[3])
         #print "%s, %s, %s, %s"%(dev.get_vals()[0], dev.get_vals()[1], dev.get_vals()[2], dev.get_vals()[3])
 
