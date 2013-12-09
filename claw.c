@@ -24,6 +24,7 @@
 uint16_t val1, val2;
 int estop = 0;
 int counter = 0;
+int buttonCounter = 0;
 int pinRead = -1;
 
 int16_t main(void) {
@@ -54,7 +55,9 @@ int16_t main(void) {
     pin_digitalOut(&D[6]);
     pin_digitalOut(&D[7]);
     pin_digitalOut(&D[8]);
-    
+    pin_digitalIn(&D[9]);
+    pin_digitalOut(&D[10]);
+
     pin_analogIn(&A[0]);
 
     pin_set(&D[2]);
@@ -63,6 +66,7 @@ int16_t main(void) {
     pin_clear(&D[6]);
     pin_clear(&D[7]);
     pin_set(&D[8]);
+    pin_set(&D[10]);
 
     // Set up the PWM signals
     oc_pwm(&oc1, &D[5], NULL, 20E3, 32768); //or 65536
@@ -88,6 +92,12 @@ int16_t main(void) {
             }
             else if (!estop) {
                 counter = 0;
+            }
+            if (pin_read(&D[9]){
+                buttonCounter ++;
+                if (buttonCounter >= 100){
+                    estop = 1;
+                }
             }
             if (estop){
                 pin_write(&D[5], 0);
