@@ -25,6 +25,7 @@ uint16_t val1, val2;
 int estop = 0;
 int counter = 0;
 int buttonCounter = 0;
+uint16_t D9 = 0;
 int pinRead = -1;
 
 int16_t main(void) {
@@ -55,8 +56,8 @@ int16_t main(void) {
     pin_digitalOut(&D[6]);
     pin_digitalOut(&D[7]);
     pin_digitalOut(&D[8]);
-    pin_digitalIn(&D[9]);
-    pin_digitalOut(&D[10]);
+    pin_digitalOut(&D[9]);
+    pin_digitalIn(&D[10]);
 
     pin_analogIn(&A[0]);
 
@@ -66,7 +67,7 @@ int16_t main(void) {
     pin_clear(&D[6]);
     pin_clear(&D[7]);
     pin_set(&D[8]);
-    pin_set(&D[10]);
+    pin_set(&D[9]);
 
     // Set up the PWM signals
     oc_pwm(&oc1, &D[5], NULL, 20E3, 32768); //or 65536
@@ -81,23 +82,29 @@ int16_t main(void) {
     while (1) {
         ServiceUSB(); // service any pending USB requests
         
-        if (pinRead >= 0) {
+        if (pinRead >= 0 && !estop) {
             pinRead = -1;
             if (pin_read(&A[0]) < THRESHOLD) {
-                counter ++;
+                // counter ++;
                 if (counter >= 500) {
                     led_on(&led2);
-                    estop = 1;
+                    // estop = 1;
                 }
             }
             else if (!estop) {
                 counter = 0;
             }
-            if (pin_read(&D[9]){
+            D9 = pin_read(&D[10]);
+            if (D9) {
                 buttonCounter ++;
-                if (buttonCounter >= 100){
+                led_on(&led3);
+                if (buttonCounter >= 500){
                     estop = 1;
                 }
+            }
+            else if (!estop) {
+                led_off(&led3);
+                buttonCounter = 0;
             }
             if (estop){
                 pin_write(&D[5], 0);
@@ -143,11 +150,11 @@ void VendorRequests(void) {
             BD[EP0IN].address[3] = temp.b[1];
 
             // temp.w = pin_read(&A[2]);
-            // temp.w = OC_count;
+            temp.w = D9;
             BD[EP0IN].address[4] = temp.b[0];
             BD[EP0IN].address[5] = temp.b[1];
             
-            temp.w = VBUS;
+            temp.w = buttonCounter;
             BD[EP0IN].address[6] = temp.b[0];
             BD[EP0IN].address[7] = temp.b[1];
             
