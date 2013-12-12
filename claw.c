@@ -16,16 +16,20 @@
 #define GET_VALS        2   // Vendor request that returns 2 unsigned integer values
 #define PRINT_VALS      3   // Vendor request that prints 2 unsigned integer values 
 
-#define THRESHOLD       24000
+#define LOWER_THRESHOLD 24000
+#define UPPER_THRESHOLD 42000      
 #define WAITING         0 
 #define SENDING         1
 #define VBUS            U1OTGSTATbits.SESVD
 
 uint16_t val1, val2;
-int estop = 0;
-int counter = 0;
+int estop = 0; int idle = 0;
+
+int currentCounter = 0;
 int buttonCounter = 0;
-uint16_t D9 = 0;
+int D10 = 0;
+int D13 = 0;
+int newD13;
 int pinRead = -1;
 
 int16_t main(void) {
@@ -58,6 +62,7 @@ int16_t main(void) {
     pin_digitalOut(&D[8]);
     pin_digitalOut(&D[9]);
     pin_digitalIn(&D[10]);
+    pin_digitalIn(&D[13]);
 
     pin_analogIn(&A[0]);
 
@@ -66,13 +71,14 @@ int16_t main(void) {
     pin_set(&D[4]);
     pin_clear(&D[6]);
     pin_clear(&D[7]);
-    pin_set(&D[8]);
+    pin_clear(&D[8]);
     pin_set(&D[9]);
 
     // Set up the PWM signals
     oc_pwm(&oc1, &D[5], NULL, 20E3, 32768); //or 65536
+    pin_set(&D[8]);
 
-    // Set up estop
+    // Set up estop and other flags
     estop = 0;
 
     // Set up OCInterrupt
@@ -82,20 +88,20 @@ int16_t main(void) {
     while (1) {
         ServiceUSB(); // service any pending USB requests
         
-        if (pinRead >= 0 && !estop) {
+        if (pinRead && !estop && !idle) {
             pinRead = -1;
-            if (pin_read(&A[0]) < THRESHOLD) {
-                // counter ++;
-                if (counter >= 500) {
+            if (pin_read(&A[0]) < LOWER_THRESHOLD || pin_read(&A[0]) > UPPER_THRESHOLD) {
+                currentCounter ++;
+                if (currentCounter >= 500) {
                     led_on(&led2);
-                    // estop = 1;
+                    estop = 1;
                 }
             }
             else if (!estop) {
-                counter = 0;
+                currentCounter = 0;
             }
-            D9 = pin_read(&D[10]);
-            if (D9) {
+            D10 = pin_read(&D[10]);
+            if (D10) {
                 buttonCounter ++;
                 led_on(&led3);
                 if (buttonCounter >= 500){
@@ -107,8 +113,19 @@ int16_t main(void) {
                 buttonCounter = 0;
             }
             if (estop){
+                idle = 1;
+                estop = 0;
                 pin_write(&D[5], 0);
+                pin_toggle(&D[8]);
             }
+        }
+        else if (idle) {
+            newD13 = pin_read(&D[13]);
+            if (newD13 != D13) {
+                pin_write(&D[5], 32768);
+                idle = 0;
+            }
+            D13 = newD13;
         }
         
         // Blinky light
@@ -121,7 +138,7 @@ int16_t main(void) {
 
 void __attribute__((interrupt, auto_psv)) _OC1Interrupt(void){
     IFS0bits.OC1IF = 0; 
-    pinRead = 0;
+    pinRead = 1;
 }
 
 void VendorRequests(void) {
@@ -145,16 +162,16 @@ void VendorRequests(void) {
             BD[EP0IN].address[1] = temp.b[1];
 
             // temp.w = pin_read(&A[1]);
-            temp.w = counter;
+            temp.w = currentCounter;
             BD[EP0IN].address[2] = temp.b[0];
             BD[EP0IN].address[3] = temp.b[1];
 
             // temp.w = pin_read(&A[2]);
-            temp.w = D9;
+            temp.w = D10;
             BD[EP0IN].address[4] = temp.b[0];
             BD[EP0IN].address[5] = temp.b[1];
             
-            temp.w = buttonCounter;
+            temp.w = D13;
             BD[EP0IN].address[6] = temp.b[0];
             BD[EP0IN].address[7] = temp.b[1];
             

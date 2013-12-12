@@ -47,7 +47,7 @@ if __name__ == '__main__':
     time.sleep(1)
     while (True):
         time.sleep(0.01)
-        # print "Current: %s, Current Counter: %s, Button: %s, Button Counter: %s"%(dev.get_vals()[0], dev.get_vals()[1], dev.get_vals()[2], dev.get_vals()[3])
-        print "Button: %s, Button Counter: %s"%(dev.get_vals()[2], dev.get_vals()[3])
+        print "Current: %s, Current Counter: %s, Button: %s, D13: %s"%(dev.get_vals()[0], dev.get_vals()[1], dev.get_vals()[2], dev.get_vals()[3])
+        # print "Button: %s, Button Counter: %s"%(dev.get_vals()[2], dev.get_vals()[3])
         #print "%s, %s, %s, %s"%(dev.get_vals()[0], dev.get_vals()[1], dev.get_vals()[2], dev.get_vals()[3])
 
